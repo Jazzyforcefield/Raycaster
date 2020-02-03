@@ -1,4 +1,4 @@
-# CSCI5607 Assignment 0
+# CSCI 5607 Assignment 0
 
 This program takes in an input file which has 3 terms: "imsize", the width, and the height of the image to be created.
 
