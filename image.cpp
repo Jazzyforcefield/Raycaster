@@ -19,21 +19,25 @@ int image_write(std::ostream & fout, int width, int height) {
   for (int i = 0; i < height; i++) {
     for (int j = 0; j < width; j++) {
       int res = i > height * 0.05 && i < height * 0.95 && j > width * 0.05 && j < width * 0.95;
-      r = 255 * ((float) (i * j) / size);
-      g = 255 * ((float) (i * j) / (2 * size));
-      b = 255 * ((float) (i * j) / (3 * size));
+      r = 100 + 155 * ((float) (i * j) / size);
+      g = 100 + 155 * ((float) (i * j) / (4 * size));
+      b = 100 + 155 * ((float) (i * j) / (8 * size));
       
-      if (abs((height / 4) * sin(j * 3.14 / (width / 2)) + (height / 2) - i) < 10) {
-        fout << r << " " << g << " " << b << std::endl;
+      if (abs((height / 4) * sin(j * 3.14 / (width / 2)) + (height / 2) - i) < 5) {
+        fout << r << " " << 255 - g << " " << "0" << std::endl;
       } else {
-        if (i < width / 2) {
+        if (i > width / 2) {
           if (j > height / 2) {
             fout << 255 - b << " " << 255 - g << " " << 255 - r << std::endl;            
           } else {
             fout << b << " " << g << " " << r << std::endl;
           }
         } else {
-          fout << 255 - b << " " << 255 - g << " " << 255 - r << std::endl;
+          if (j < height / 2) {
+            fout << 255 - b << " " << 255 - g << " " << 255 - r << std::endl;            
+          } else {
+            fout << b << " " << g << " " << r << std::endl;
+          }
         }
       }
       rad = rad;
