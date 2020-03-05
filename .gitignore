@@ -2,3 +2,5 @@
 *.out
 *.zip
 *.ppm
+gen_image
+image
