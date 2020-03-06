@@ -29,6 +29,8 @@ std::vector<SphereType *> objects;
 
 // Vertex buffer
 std::vector<VectorType> vb;
+std::vector<VectorType> normals;
+
 std::vector<TriangleType *> tri;
 
 std::vector<LightType *> lights;
