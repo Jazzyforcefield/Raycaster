@@ -16,8 +16,6 @@ std::ofstream fout;
 std::string name;
 std::string buffer;
 
-// Vertex buffer
-std::vector<VectorType> vb;
 
 // Initialize defaults and ifstream
 int setup(std::ifstream & fin, char * name) {
@@ -42,8 +40,16 @@ int read_file(std::ifstream & fin) {
       fin >> temp_vector.x;
       fin >> temp_vector.y;
       fin >> temp_vector.z;
+      vb.push_back(temp_vector);
       
-    } if (buffer == "eye") {
+    } else if (buffer == "f") {
+      TriangleType * temp_tri = new TriangleType();
+      fin >> temp_tri->vertices_[0];
+      fin >> temp_tri->vertices_[1];
+      fin >> temp_tri->vertices_[2];
+      tri.push_back(temp_tri);
+
+    } else if (buffer == "eye") {
       if (!fin.eof())
         fin >> eye.x;
       else return -1;
@@ -264,6 +270,18 @@ int print_values() {
     std::cout << "light: type_: " << lights[i]->type_ << std::endl;
     lights[i]->components_.Print();
     lights[i]->color_.Print();
+    std::cout << std::endl;
+  }
+
+  for (int i = 0; i < vb.size(); i++) {
+    std::cout << "v: " << vb[i].x << " " << vb[i].y << " " << vb[i].z;
+    std::cout << std::endl;
+  }
+    std::cout << std::endl;
+
+  for (int i = 0; i < tri.size(); i++) {
+    std::cout << "f: " << tri[i]->vertices_[0] << " " << tri[i]->vertices_[1];
+    std::cout << " " << tri[i]->vertices_[2];
     std::cout << std::endl;
   }
 

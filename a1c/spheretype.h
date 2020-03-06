@@ -3,10 +3,12 @@
 #ifndef SPHERETYPE_H_
 #define SPHERETYPE_H_
 
+#include "shape.h"
+
 int mtlc = 0;
 int cc = 0;
 
-class SphereType {
+class SphereType : public ShapeType {
  public:
   SphereType(float x = 0, float y = 0, float z = 0, float r = 0) {
     this->x = x;
