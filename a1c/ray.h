@@ -43,7 +43,8 @@ float dcmin = 0.f;
 
 class RayType {
  public:
-  RayType(float x = 0, float y = 0, float z = 0, float dx = 0, float dy = 0, float dz = 0) {
+  RayType(float x = 0, float y = 0, float z = 0,
+          float dx = 0, float dy = 0, float dz = 0) {
     this->x = x;
     this->y = y;
     this->z = z;
@@ -59,35 +60,6 @@ class RayType {
   float dy;
   float dz;
 };
-
-bool check_point(VectorType intersection, TriangleType& t) {
-  VectorType e1, e2, e3;
-  float a, b, c;
-  float alpha, beta, gamma;
-  float sum;
-  float actual;
-
-  actual = (vb[t.vertices_[1] - 1] - vb[t.vertices_[0] - 1])
-                 .cross(vb[t.vertices_[2] - 1] - vb[t.vertices_[0] - 1]).length() / 2.f;
-
-  e1 = vb[t.vertices_[0] - 1] - intersection;
-  e2 = vb[t.vertices_[1] - 1] - intersection;
-  e3 = vb[t.vertices_[2] - 1] - intersection;
-
-  a = e1.cross(e2).length();
-  b = e2.cross(e3).length();
-  c = e3.cross(e1).length();
-
-  alpha = a / actual;
-  beta = b / actual;
-  gamma = c / actual;
-
-  sum = (a + b + c) / 2.f;
-
-  if (fabs(actual - sum) < 0.0001) {
-    return true;
-  } return false;
-}
 
 ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   float epsilon = 0.01;  // Sparse ray threshold
@@ -247,7 +219,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   return result.clamp(0.f, 1.f);
 }
 
-ColorType Shade_RayT(float x, float y, float z, TriangleType & s) {
+ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay) {
   float epsilon = 0.01;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
   float n;               // Specular highlight fall-off
@@ -270,7 +242,7 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s) {
   od = mtlcolor[s.m_].albedo_;
   os = mtlcolor[s.m_].highlight_;
   n = mtlcolor[s.m_].n_;
-  N = s.normal().normalize();
+  N = s.normal(bay).normalize();
   V = viewdir.scalar(-1).normalize();
 
   ambient = od.scalar(ka);
@@ -365,6 +337,15 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s) {
       }     // k
     }       // j
 
+
+
+
+
+
+
+
+
+
     // Set the shadow factor and the attentuation factors
     // The attenuation used only has linear scaling with distance
     // Increase numerator to increase contrast/decreases fall-off rate
@@ -443,13 +424,16 @@ ColorType Trace_Ray(RayType ray) {
 
 
   // Check triangles
+  float alpha = 1.f, beta = 1.f, gamma = 1.f;
   for (int s = 0; s < tri.size(); s++) {
     VectorType point = vb[tri[s]->vertices_[0] - 1];
+    //tri[s]->check_point(point, alpha, beta, gamma);
     VectorType normal = tri[s]->normal();
     float tD = -normal.dot(point);
     float Bt = normal.dot(ray_dir);
 
     if (fabs(Bt) < 0.0001) {
+      std::cout << Bt << std::endl;
       return bkgcolor;
     }
 
@@ -457,7 +441,7 @@ ColorType Trace_Ray(RayType ray) {
     float temp_min_t = std::min(t, min_t);
     VectorType intersect = eye + ray_dir.scalar(temp_min_t);
 
-    if (t < min_t && check_point(intersect, *tri[s])) {
+    if (t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
       triangle = true;
       sindex = s;
       min_t = temp_min_t;
@@ -474,7 +458,8 @@ ColorType Trace_Ray(RayType ray) {
   // Calculate intersection point and pass it and the sphere to ShadeRay()
   VectorType intersect = eye + ray_dir.scalar(min_t);
   if (triangle) {
-    return Shade_RayT(intersect.x, intersect.y, intersect.z, *tri[sindex]);
+    return Shade_RayT(intersect.x, intersect.y, intersect.z, *tri[sindex],
+                      VectorType(alpha, beta, gamma));
   } return Shade_Ray(intersect.x, intersect.y, intersect.z, *objects[sindex]);
 }
 

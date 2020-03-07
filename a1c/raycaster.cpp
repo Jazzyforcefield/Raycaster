@@ -5,6 +5,7 @@
 #include <cmath>
 #include <vector>
 #include <cstdlib>
+#include <algorithm>
 
 #include "ray.h"
 
@@ -44,10 +45,37 @@ int read_file(std::ifstream & fin) {
       
     } else if (buffer == "f") {
       TriangleType * temp_tri = new TriangleType();
-      fin >> temp_tri->vertices_[0];
-      fin >> temp_tri->vertices_[1];
-      fin >> temp_tri->vertices_[2];
+      std::string b1;
+      std::string b2;
+      for (int i = 0; i < 3; i++) {
+        fin >> b1;
+        std::cout << "A " << b1 << std::endl;
+        if (std::count(b1.begin(), b1.end(), '/') == 1) {
+          b2 = b1.substr(0, b1.find("/"));
+          temp_tri->vertices_[i] = stoi(b2);
+          b2 = b1.substr(b1.find("/") + 1, b1.length());
+          temp_tri->normals_[i] = stoi(b2);
+          temp_tri->n_def_ = true;
+        } else if (std::count(b1.begin(), b1.end(), '/') == 2) {
+          b2 = b1.substr(0, b1.find("//"));
+          temp_tri->vertices_[i] = stoi(b2);
+          b2 = b1.substr(b1.find("//") + 2, b1.length());
+        std::cout << "B " << b2 << std::endl;
+          temp_tri->normals_[i] = stoi(b2);
+          temp_tri->n_def_ = true;
+        } else {
+          temp_tri->vertices_[i] = stoi(b1);
+          temp_tri->n_def_ = false;
+        }
+      }
       tri.push_back(temp_tri);
+
+    } else if (buffer == "vn") {
+      float xn, yn, zn;
+      fin >> xn;
+      fin >> yn;
+      fin >> zn;
+      normals.push_back(VectorType(xn, yn, zn));
 
     } else if (buffer == "eye") {
       if (!fin.eof())
@@ -277,7 +305,11 @@ int print_values() {
     std::cout << "v: " << vb[i].x << " " << vb[i].y << " " << vb[i].z;
     std::cout << std::endl;
   }
+
+  for (int i = 0; i < normals.size(); i++) {
+    std::cout << "vn: " << normals[i].x << " " << normals[i].y << " " << normals[i].z;
     std::cout << std::endl;
+  }
 
   for (int i = 0; i < tri.size(); i++) {
     std::cout << "f: " << tri[i]->vertices_[0] << " " << tri[i]->vertices_[1];
@@ -340,6 +372,27 @@ int create_image(std::ofstream& fout) {
   return 0;
 }
 
+void Update_Normals() {
+  std::vector<VectorType> normals_new;
+  for (int i = 0; i < normals.size(); i++) {
+    int usage = 0;
+    VectorType usagev = VectorType();
+
+    for (int j = 0; j < tri.size(); j++) {
+      if (tri[j]->normals_[0] == i + 1 || tri[j]->normals_[1] == i + 1 ||
+          tri[j]->normals_[2] == i + 1) {
+        usage++;
+        usagev = usagev + tri[j]->normal();
+      }
+    }
+
+    if (usage != 0) {
+      normals_new.push_back(usagev.normalize());
+    }
+  }
+
+  normals = normals_new;
+}
 
 int main(int argc, char ** argv) {
   if (argc != 2) {
@@ -403,6 +456,8 @@ int main(int argc, char ** argv) {
   VectorType lr = VectorType(center.x + n.scalar(focal).x + un.x - vn.x,
                              center.y + n.scalar(focal).y + un.y - vn.y,
                              center.z + n.scalar(focal).z + un.z - vn.z);
+
+  Update_Normals();
 
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
