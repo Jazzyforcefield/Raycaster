@@ -337,15 +337,6 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
       }     // k
     }       // j
 
-
-
-
-
-
-
-
-
-
     // Set the shadow factor and the attentuation factors
     // The attenuation used only has linear scaling with distance
     // Increase numerator to increase contrast/decreases fall-off rate
@@ -427,7 +418,6 @@ ColorType Trace_Ray(RayType ray) {
   float alpha = 1.f, beta = 1.f, gamma = 1.f;
   for (int s = 0; s < tri.size(); s++) {
     VectorType point = vb[tri[s]->vertices_[0] - 1];
-    //tri[s]->check_point(point, alpha, beta, gamma);
     VectorType normal = tri[s]->normal();
     float tD = -normal.dot(point);
     float Bt = normal.dot(ray_dir);
