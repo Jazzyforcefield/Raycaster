@@ -27,6 +27,6 @@ This is what I think I implemented.
 *___The program is capable of rendering textured triangles.  The texture coordinate at the ray/triangle intersection point is correctly interpolated from the texture coordinates defined at each of the three triangle vertices. The interpolated texture coordinate is used to retrieve a correctly corresponding color from the texture map, which specifies the object’s diffuse color in the Phong illumination model at that point. (25pts)
     * Yes.
 *___The student has submitted one or more scene description files and accompanying rendered images to successfully demonstrate all of the capabilities of their program, including the ability to render: at least one flat-shaded triangle, multiple smooth-shaded triangles, one or more textured triangles, and one or more textured spheres. (5pts)
-    * Yes.
+    * Yes. Flat shaded triangles include the black pin on the map and the right two triangles. The smooth shaded triangles are the ones in the middle. The textured triangles are the folded map. The texture sphere is the globe. Untextured sphere is also included as the ball on the pin.
 *___Extra credit: The program is capable of reading a normal map from a file and correctly using the values in that map to vary the surface normal direction used in calculating the illumination equation at each point across a bump-mapped surface. (7pts)
     * Nope.
