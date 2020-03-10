@@ -9,19 +9,24 @@
 
 extern std::vector<VectorType> vb;
 extern std::vector<VectorType> normals;
+extern std::vector<VectorType> tex_coords;
 
 class TriangleType : public ShapeType {
  public:
   TriangleType() {
     vertices_ = new unsigned int[3];
     normals_ = new unsigned int[3];
+    tex_coords_ = new unsigned int[3];
     m_ = mtlc - 1;
+    t_ = texc - 1;
   }
 
   TriangleType(unsigned int one, unsigned int two, unsigned int three,
-               unsigned int n1 = 0, unsigned int n2 = 0, unsigned int n3 = 0) {
+               unsigned int n1 = 0, unsigned int n2 = 0, unsigned int n3 = 0,
+               unsigned int t1 = 0, unsigned int t2 = 0, unsigned int t3 = 0) {
     vertices_ = new unsigned int[3];
     normals_ = new unsigned int[3];
+    tex_coords_ = new unsigned int[3];
 
     vertices_[0] = one;
     vertices_[1] = two;
@@ -31,7 +36,12 @@ class TriangleType : public ShapeType {
     normals_[1] = n2;
     normals_[2] = n3;
 
-    m_ = 0;
+    tex_coords_[0] = n1;
+    tex_coords_[1] = n2;
+    tex_coords_[2] = n3;
+
+    m_ = mtlc - 1;
+    t_ = texc - 1;
   }
 
   ~TriangleType() { delete vertices_; }
@@ -76,6 +86,16 @@ class TriangleType : public ShapeType {
     }
   }
 
+  VectorType texture(VectorType bay) {
+    if (textured_ && !(bay.x == bay.y && bay.y == bay.z && bay.z == 1.f)) {    
+  return (tex_coords[tex_coords_[0] - 1].scalar(bay.x) +
+              tex_coords[tex_coords_[1] - 1].scalar(bay.y) +
+              tex_coords[tex_coords_[2] - 1].scalar(bay.z));
+    } else {
+      return VectorType(0, 0, 0);
+    }
+  }
+
   VectorType position() {
     return (vb[vertices_[0] - 1] + vb[vertices_[1] - 1] + vb[vertices_[2] - 1])
            .scalar(1.f / 3);
@@ -83,7 +103,9 @@ class TriangleType : public ShapeType {
 
   unsigned int * vertices_;
   unsigned int * normals_;
+  unsigned int * tex_coords_;
   int m_;
+  int t_;
   bool textured_;
   bool n_def_;
 };

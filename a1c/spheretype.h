@@ -6,7 +6,7 @@
 #include "shape.h"
 
 int mtlc = 0;
-int cc = 0;
+int texc = 0;
 
 class SphereType : public ShapeType {
  public:
@@ -19,9 +19,11 @@ class SphereType : public ShapeType {
     if (mtlc == 0) {
       this->m = 0;
     } else {
-      this->m = cc++;
-      cc %= mtlc;
+      this->m = mtlc - 1;
     }
+
+    textured = false;
+    t = texc - 1;
   }
 
   float x;
@@ -29,6 +31,8 @@ class SphereType : public ShapeType {
   float z;
   float r;
   int m;
+  int t;
+  bool textured;
 };
 
 #endif  // SPHERETYPE_H_

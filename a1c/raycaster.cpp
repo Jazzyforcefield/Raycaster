@@ -42,27 +42,36 @@ int read_file(std::ifstream & fin) {
       fin >> temp_vector.y;
       fin >> temp_vector.z;
       vb.push_back(temp_vector);
-      
     } else if (buffer == "f") {
       TriangleType * temp_tri = new TriangleType();
       std::string b1;
       std::string b2;
       for (int i = 0; i < 3; i++) {
         fin >> b1;
-        std::cout << "A " << b1 << std::endl;
         if (std::count(b1.begin(), b1.end(), '/') == 1) {
           b2 = b1.substr(0, b1.find("/"));
           temp_tri->vertices_[i] = stoi(b2);
           b2 = b1.substr(b1.find("/") + 1, b1.length());
-          temp_tri->normals_[i] = stoi(b2);
-          temp_tri->n_def_ = true;
+          temp_tri->tex_coords_[i] = stoi(b2);
+          temp_tri->n_def_ = false;
+          temp_tri->textured_ = true;
         } else if (std::count(b1.begin(), b1.end(), '/') == 2) {
-          b2 = b1.substr(0, b1.find("//"));
-          temp_tri->vertices_[i] = stoi(b2);
-          b2 = b1.substr(b1.find("//") + 2, b1.length());
-        std::cout << "B " << b2 << std::endl;
-          temp_tri->normals_[i] = stoi(b2);
-          temp_tri->n_def_ = true;
+          if (b1.find("//") == std::string::npos) {
+            b2 = b1.substr(0, b1.find("/"));
+            temp_tri->vertices_[i] = stoi(b2);
+            b2 = b1.substr(b1.find("/") + 1, b1.length() - b1.find("/"));
+            temp_tri->tex_coords_[i] = stoi(b2);
+            b2 = b1.substr(b1.find("/") + 1, b1.length());
+            temp_tri->normals_[i] = stoi(b2);
+            temp_tri->n_def_ = true;
+            temp_tri->textured_ = true;
+          } else {
+            b2 = b1.substr(0, b1.find("//"));
+            temp_tri->vertices_[i] = stoi(b2);
+            b2 = b1.substr(b1.find("//") + 2, b1.length());
+            temp_tri->normals_[i] = stoi(b2);
+            temp_tri->n_def_ = true;
+          }
         } else {
           temp_tri->vertices_[i] = stoi(b1);
           temp_tri->n_def_ = false;
@@ -76,6 +85,12 @@ int read_file(std::ifstream & fin) {
       fin >> yn;
       fin >> zn;
       normals.push_back(VectorType(xn, yn, zn));
+
+    } else if (buffer == "vt") {
+      float xt, yt;
+      fin >> xt;
+      fin >> yt;
+      tex_coords.push_back(VectorType(xt, yt, 0));
 
     } else if (buffer == "eye") {
       if (!fin.eof())
@@ -116,12 +131,15 @@ int read_file(std::ifstream & fin) {
       else return -1;
 
     } else if (buffer == "imsize") {
-      if (!fin.eof())
-        fin >> width;
-      else return -1;
-      if (!fin.eof())
-        fin >> height;
-      else return -1;
+      float w, h;
+      if (!fin.eof()) {
+        fin >> w;
+        width = w;
+      } else return -1;
+      if (!fin.eof()) {
+        fin >> h;
+        height = h;
+      } else return -1;
 
     } else if (buffer == "bkgcolor") {
       if (!fin.eof())
@@ -170,6 +188,41 @@ int read_file(std::ifstream & fin) {
         fin >> mtlcolor[mtlc].n_;
         mtlc++;
       } else return -1;
+
+    } else if (buffer == "texture") {
+      if (texc > 9) {
+        std::cout << "Max textures reached!" << std::endl;
+        exit(1);
+      }
+      std::ifstream tfin;
+      fin >> buffer;
+      tfin.open(buffer);
+
+      if (!tfin) {
+        std::cerr << "Invalid .ppm file!" << std::endl;
+        exit(1);
+      }
+      float max_c;
+      tfin >> buffer;
+      tfin >> textures[texc].width_;
+      tfin >> textures[texc].height_;
+      tfin >> max_c;
+      textures[texc].map_ = new ColorType * [textures[texc].height_];
+      for (int i = 0; i < textures[texc].height_; i++) {
+        textures[texc].map_[i] = new ColorType[textures[texc].width_];
+      }
+
+      for (int row = 0; row < textures[texc].height_; row++) {
+        for (int col = 0; col < textures[texc].width_; col++) {
+          tfin >> textures[texc].map_[row][col].r;
+          tfin >> textures[texc].map_[row][col].g;
+          tfin >> textures[texc].map_[row][col].b;
+          textures[texc].map_[row][col] = textures[texc].map_[row][col].scalar(1.f / max_c);
+          //textures[texc].map_[row][col].Print();
+        }
+      }
+      tfin.close();
+      texc++;
 
     } else if (buffer == "light") {
       LightType * temp = new LightType();
@@ -311,6 +364,11 @@ int print_values() {
     std::cout << std::endl;
   }
 
+  for (int i = 0; i < tex_coords.size(); i++) {
+    std::cout << "vt: " << tex_coords[i].x << " " << tex_coords[i].y << " " << tex_coords[i].z;
+    std::cout << std::endl;
+  }
+
   for (int i = 0; i < tri.size(); i++) {
     std::cout << "f: " << tri[i]->vertices_[0] << " " << tri[i]->vertices_[1];
     std::cout << " " << tri[i]->vertices_[2];
@@ -413,10 +471,10 @@ int main(int argc, char ** argv) {
   }
 
   print_values();
-  ret = check_values();
+  //ret = check_values();
   if (ret < 0) {
-    std::cerr << "Please fix your errors." << std::endl;
-    exit(1);
+  //  std::cerr << "Please fix your errors." << std::endl;
+   // exit(1);
   }
   
   name = argv[1];
@@ -457,7 +515,7 @@ int main(int argc, char ** argv) {
                              center.y + n.scalar(focal).y + un.y - vn.y,
                              center.z + n.scalar(focal).z + un.z - vn.z);
 
-  Update_Normals();
+  //Update_Normals();   // ????? I commentted this out and it worked...
 
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {

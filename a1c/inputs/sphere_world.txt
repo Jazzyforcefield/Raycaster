@@ -1,0 +1,10 @@
+eye 0 0 0
+viewdir 0 1 0
+updir 0 0 1
+hfov 90
+imsize 1000 1000
+bkgcolor 0 0 0
+light 0 0 10 1 1 1 1
+mtlcolor 1 0 0 1 1 1 0.6 0.2 0.2 2
+texture texture_world.ppm
+sphere 0 5 0 2
