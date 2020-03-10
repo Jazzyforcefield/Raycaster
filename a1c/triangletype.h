@@ -66,6 +66,7 @@ class TriangleType : public ShapeType {
 
     sum = (a + b + c) / 2.f;
 
+    // Basically just alpha + beta + gamma = 1 => (alpha + beta + gamma) / A = 1
     if (fabs(actual - sum) < 0.0001) {
       alpha = 0.5f * a / actual;
       beta = 0.5f * b / actual;

@@ -14,6 +14,8 @@
 #include "lighttype.h"
 #include "texturetype.h"
 
+#define PI 3.1415926
+#define SAMPLES 1
 
 // Raycast related variables
 VectorType eye;
@@ -124,7 +126,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
 
     distance = Lbefore.length();
     L = Lbefore.normalize();
-    fshadow = 200.f;
+    fshadow = lights.size() * SAMPLES;
 
     // Avoid shadow bleeding
     bool in_shadow = false;
@@ -144,13 +146,14 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
         continue;
       }
 
-      // Cast 50 rays for softer shadows
-      for (int k = 0; k < 50; k++) {
+      // Cast SAMPLES rays for softer shadows
+      // Oops forgot to use this...
+      for (int k = 0; k < SAMPLES; k++) {
         float random[3];
 
         // Max 20% deviation from original direction
         for (int r = 0; r < 3; r++) {
-          random[r] = (rand() % 200) / 1000.f;
+          random[r] = (rand() % (lights.size() * SAMPLES)) / 1000.f;
         }   // r
 
         VectorType rand_vec = VectorType(random[0], random[1], random[2]).normalize();
@@ -181,7 +184,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
 
             // Subtracting from the shadow factor for darker shadows, alterable
             // Controls some of shadow fall-off, scalable by distance
-            fshadow -= otherdir.dot(N.scalar(-1)) * (lights.size() / (length + 1));
+            fshadow -= otherdir.dot(N.scalar(-lights.size()));
 
             // Change shadow behavior if a directional light
             // Side note: if only i had read the canvas page I would've saved
@@ -200,12 +203,54 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
       }     // k
     }       // j
 
+    for (int j = 0; j < tri.size(); j++) {
+      // Checks if the length between surfaces larger than light distance
+      // Also checks if it's a directional light or if it's in a shadow
+      // Or if it's in the same direction as the light
+       //if (in_shadow) break;
+      if (in_shadow) {
+        continue;
+      }
+
+      // Cast SAMPLES rays for softer shadows
+      for (int k = 0; k < SAMPLES; k++) {
+        float random[3];
+
+        // Max 20% deviation from original direction
+        for (int r = 0; r < 3; r++) {
+          random[r] = (rand() % (lights.size() * SAMPLES)) / 1000.f;
+        }   // r
+
+        VectorType rand_vec = VectorType(random[0], random[1], random[2]).normalize();
+        if (rand() % 1) rand_vec = rand_vec.scalar(-1.f);
+
+        float alpha = 1.f, beta = 1.f, gamma = 1.f;
+        VectorType point = vb[tri[j]->vertices_[0] - 1];
+        VectorType normal = tri[j]->normal();
+        float tD = -normal.dot(point);
+        float Bt = normal.dot(L);
+
+        float t = -(normal.dot(intersection) + tD) / Bt;
+        VectorType intersect = intersection + L.scalar(t);
+        bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
+        if (t > 0 && res) {
+          in_shadow = true;
+          fshadow -= L.dot(N.scalar(-lights.size()));
+        } else if (t <= 0 || !res) {
+          continue;
+        } else {
+          std::cerr << "Problem has occurred in ShadeRay!" << std::endl;
+          exit(1);
+        }
+      }
+    }     // k
+
     // Set the shadow factor and the attentuation factors
     // The attenuation used only has linear scaling with distance
     // Increase numerator to increase contrast/decreases fall-off rate
     // Basically a = 0, b = 0.125, c = 0 | a = 1
-    attenuation = (lights[i]->type_ == 1) ? 8.f / distance : 2.f;
-    fshadow = std::min(std::max(0.f, fshadow / 200.f), 1.f);
+    attenuation = 1.f;//(lights[i]->type_ == 1) ? 8.f / distance : 2.f;
+    fshadow = std::min(std::max(0.f, fshadow / (lights.size() * SAMPLES)), 1.f);
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
@@ -214,10 +259,10 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-               .scalar(attenuation * fshadow * (1)) *
+               .scalar(attenuation * fshadow) *
                (od.scalar(kd * std::max(0.f, N.dot(L))) +
                os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
-    fshadow = 200.f;
+    fshadow = (lights.size() * SAMPLES);
   }           // i
 
   // Reset shadow factor
@@ -241,6 +286,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   return result.clamp(0.f, 1.f);
 }
 
+// Oh yeah... I accidentally read it as baycentric rather than barycentric...
 ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay) {
   float epsilon = 0.01;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
@@ -290,7 +336,7 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
 
     distance = Lbefore.length();
     L = Lbefore.normalize();
-    fshadow = 200.f;
+    fshadow = (lights.size() * SAMPLES);
 
     // Avoid shadow bleeding
     bool in_shadow = false;
@@ -310,13 +356,13 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
         continue;
       }
 
-      // Cast 50 rays for softer shadows
-      for (int k = 0; k < 50; k++) {
+      // Cast SAMPLES rays for softer shadows
+      for (int k = 0; k < SAMPLES; k++) {
         float random[3];
 
         // Max 20% deviation from original direction
         for (int r = 0; r < 3; r++) {
-          random[r] = (rand() % 200) / 1000.f;
+          random[r] = (rand() % (lights.size() * SAMPLES)) / 1000.f;
         }   // r
 
         VectorType rand_vec = VectorType(random[0], random[1], random[2]).normalize();
@@ -378,13 +424,13 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
         continue;
       }
 
-      // Cast 50 rays for softer shadows
-      for (int k = 0; k < 50; k++) {
+      // Cast SAMPLES rays for softer shadows
+      for (int k = 0; k < SAMPLES; k++) {
         float random[3];
 
         // Max 20% deviation from original direction
         for (int r = 0; r < 3; r++) {
-          random[r] = (rand() % 200) / 1000.f;
+          random[r] = (rand() % (lights.size() * SAMPLES)) / 1000.f;
         }   // r
 
         VectorType rand_vec = VectorType(random[0], random[1], random[2]).normalize();
@@ -396,16 +442,12 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
         float tD = -normal.dot(point);
         float Bt = normal.dot(L);
 
-        if (fabs(Bt) < 0.0001) {
-          return bkgcolor;
-        }
-
         float t = -(normal.dot(intersection) + tD) / Bt;
         VectorType intersect = intersection + L.scalar(t);
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
         if (t > 0 && res) {
           in_shadow = true;
-          fshadow -= L.dot(N.scalar(-4)) * ((1.f / lights.size()) / (Lbefore.length() + 1));
+          fshadow -= L.dot(N.scalar(-4));
         } else if (t <= 0 || !res) {
           continue;
         } else {
@@ -415,17 +457,12 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
       }
     }     // k
 
-
-
-
-
-
     // Set the shadow factor and the attentuation factors
     // The attenuation used only has linear scaling with distance
     // Increase numerator to increase contrast/decreases fall-off rate
     // Basically a = 0, b = 0.125, c = 0 | a = 1
-    attenuation = (lights[i]->type_ == 1) ? 8.f / Lbefore.length() : 2.f;
-    fshadow = std::max(std::min(1.f, fshadow / 200.f), 0.f);
+    attenuation = 1.f;//(lights[i]->type_ == 1) ? 8.f / Lbefore.length() : 2.f;
+    fshadow = std::max(std::min(1.f, fshadow / (lights.size() * SAMPLES)), 0.f);
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
@@ -434,10 +471,10 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-               .scalar(attenuation * fshadow * (1)) *
+               .scalar(attenuation * fshadow) *
                (od.scalar(kd * std::max(0.f, N.dot(L))) +
                os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
-    fshadow = 200.f;
+    fshadow = (lights.size() * SAMPLES);
   }           // i
 
   // Reset shadow factor
