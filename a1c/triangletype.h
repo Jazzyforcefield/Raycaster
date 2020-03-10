@@ -88,7 +88,7 @@ class TriangleType : public ShapeType {
 
   VectorType texture(VectorType bay) {
     if (textured_ && !(bay.x == bay.y && bay.y == bay.z && bay.z == 1.f)) {    
-  return (tex_coords[tex_coords_[0] - 1].scalar(bay.x) +
+      return (tex_coords[tex_coords_[0] - 1].scalar(bay.x) +
               tex_coords[tex_coords_[1] - 1].scalar(bay.y) +
               tex_coords[tex_coords_[2] - 1].scalar(bay.z));
     } else {

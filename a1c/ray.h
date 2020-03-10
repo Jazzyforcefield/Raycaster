@@ -80,14 +80,32 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   VectorType intersection = VectorType(x, y, z);
   VectorType sphere_center = VectorType(s.x, s.y, s.z);
 
+  N = (VectorType(x, y, z) - sphere_center).normalize();
+
+  int u, v;
+  float negative = atan2(N.y, N.x);
+  VectorType t_coords;
+
+  if (negative < 0.0001) {
+    t_coords = VectorType((2 * 3.1415926 + atan2(N.y, N.x)) / (2 * 3.1415926),
+                                   acos(N.z) / 3.1415926, 0);
+  } else {
+    t_coords = VectorType(atan2(N.y, N.x)/ (2 * 3.1415926),
+                                   acos(N.z) / 3.1415926, 0);
+  }
+
+  if (s.textured_ && texc > 0) {
+    u = t_coords.x * textures[s.t_].width_;
+    v = t_coords.y * textures[s.t_].height_;
+  }
+
   // Assigning equation variables
   ka = mtlcolor[s.m].ambient_;
   kd = mtlcolor[s.m].diffuse_;
   ks = mtlcolor[s.m].specular_;
-  od = mtlcolor[s.m].albedo_;
+  od = (s.textured_ && texc > 0) ? textures[s.t_].map_[v][u] : mtlcolor[s.m].albedo_;
   os = mtlcolor[s.m].highlight_;
   n = mtlcolor[s.m].n_;
-  N = (VectorType(x, y, z) - sphere_center).normalize();
   V = viewdir.scalar(-1).normalize();
 
   ambient = od.scalar(ka);

@@ -15,15 +15,15 @@ class SphereType : public ShapeType {
     this->y = y;
     this->z = z;
     this->r = r;
+    this->m = mtlc - 1;
 
-    if (mtlc == 0) {
-      this->m = 0;
+    if (texc > 0) {
+      textured_ = true;
     } else {
-      this->m = mtlc - 1;
+      textured_ = false;
     }
 
-    textured = false;
-    t = texc - 1;
+    t_ = texc - 1;
   }
 
   float x;
@@ -31,8 +31,8 @@ class SphereType : public ShapeType {
   float z;
   float r;
   int m;
-  int t;
-  bool textured;
+  int t_;
+  bool textured_;
 };
 
 #endif  // SPHERETYPE_H_
