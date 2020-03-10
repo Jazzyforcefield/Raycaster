@@ -302,10 +302,10 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
   VectorType intersection = VectorType(x, y, z);
 
   int u, v;
-  VectorType t_coords = s.texture(bay);
 
   // Check to see if texture is provided
   if (s.textured_ && texc > 0) {
+    VectorType t_coords = s.texture(bay);
     u = t_coords.x * textures[s.t_].width_;
     v = t_coords.y * textures[s.t_].height_;
   }
@@ -445,10 +445,10 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
         float t = -(normal.dot(intersection) + tD) / Bt;
         VectorType intersect = intersection + L.scalar(t);
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
-        if (t > 0 && res) {
+        if (t > 0.001 && res) {
           in_shadow = true;
-          fshadow -= L.dot(N.scalar(-4));
-        } else if (t <= 0 || !res) {
+          fshadow = 0;//L.dot(N.scalar(-4));
+        } else if (t <= 0.001 || !res) {
           continue;
         } else {
           std::cerr << "Problem has occurred in ShadeRay!" << std::endl;
@@ -543,7 +543,7 @@ ColorType Trace_Ray(RayType ray) {
     float Bt = normal.dot(ray_dir);
 
     if (fabs(Bt) < 0.0001) {
-      return bkgcolor;
+      continue;
     }
 
     float t = -(normal.dot(eye) + tD) / Bt;
