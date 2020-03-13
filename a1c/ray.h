@@ -158,7 +158,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
 
         VectorType rand_vec = VectorType(random[0], random[1], random[2]).normalize();
         if (rand() % 1) rand_vec = rand_vec.scalar(-1.f);
-
+        // L = L + rand_vec;  // This is the part I forgot to put in...
 
         // Calculates B, C, and the discriminant for the ray-sphere intersection equation
         B = 2 * (L.dot(intersection - otherpos));
