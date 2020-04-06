@@ -15,6 +15,7 @@
 #include "texturetype.h"
 
 #define PI 3.1415926
+#define e 2.7182818
 #define SAMPLES 1
 
 // Raycast related variables
@@ -47,6 +48,9 @@ float dc_far = 999999.f;
 float dcmax = 1.f;
 float dcmin = 0.f;
 
+class RayType;
+ColorType Trace_Ray(RayType, int);
+
 class RayType {
  public:
   RayType(float x = 0, float y = 0, float z = 0,
@@ -67,7 +71,16 @@ class RayType {
   float dz;
 };
 
-ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
+
+float pref = 1.f;
+float currf = 1.f;
+bool inside = false;
+
+ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
+  if (recursive_depth > 5) {
+    return ColorType(0, 0, 0);
+  }
+
   float epsilon = 0.01;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
   float n;               // Specular highlight fall-off
@@ -79,21 +92,27 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   VectorType N, V, L, H; // Intersection normal, surface-light direction, 
   VectorType Lbefore;
 
-  VectorType intersection = VectorType(x, y, z);
+  // Fresnel and Reflections
+  VectorType I, R;
+  float Fr, F0, angle_in;
+  
+  VectorType ray_origin = VectorType(in_ray.x, in_ray.y, in_ray.z);
+  VectorType ray_dir = VectorType(in_ray.dx, in_ray.dy, in_ray.dz);  
+  VectorType intersection = ray_origin + ray_dir;
   VectorType sphere_center = VectorType(s.x, s.y, s.z);
 
-  N = (VectorType(x, y, z) - sphere_center).normalize();
+  N = (intersection - sphere_center).normalize();
 
   int u, v;
   float negative = atan2(N.y, N.x);
   VectorType t_coords;
 
   if (negative < 0.0001) {
-    t_coords = VectorType((2 * 3.1415926 + atan2(N.y, N.x)) / (2 * 3.1415926),
-                                   acos(N.z) / 3.1415926, 0);
+    t_coords = VectorType((2 * PI + atan2(N.y, N.x)) / (2 * PI),
+                                   acos(N.z) / PI, 0);
   } else {
-    t_coords = VectorType(atan2(N.y, N.x)/ (2 * 3.1415926),
-                                   acos(N.z) / 3.1415926, 0);
+    t_coords = VectorType(atan2(N.y, N.x)/ (2 * PI),
+                                   acos(N.z) / PI, 0);
   }
 
   if (s.textured_ && texc > 0) {
@@ -108,7 +127,12 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   od = (s.textured_ && texc > 0) ? textures[s.t_].map_[v][u] : mtlcolor[s.m].albedo_;
   os = mtlcolor[s.m].highlight_;
   n = mtlcolor[s.m].n_;
+
+
+  // Change this to point at ray origin, maybe it's wrong, but it seems to work...
   V = viewdir.scalar(-1).normalize();
+  I = (ray_origin - intersection).normalize();
+
 
   ambient = od.scalar(ka);
 
@@ -171,6 +195,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
           t2 = (-B - sqrt(discrim)) / 2;
           ct = std::max(t1, t2);
 
+          // Possibly change to 0, since not comparing differences
           if (t1 >= epsilon && t2 >= epsilon) {
             ct = std::min(t1, t2);
           }
@@ -186,11 +211,7 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
             // Controls some of shadow fall-off, scalable by distance
             fshadow -= otherdir.dot(N.scalar(-lights.size()));
 
-            // Change shadow behavior if a directional light
-            // Side note: if only i had read the canvas page I would've saved
-            // An entire day wondering why my shadows looked weird, and that
-            // Was because my directional light fell off. Still don't know
-            // Why it took so long to figure out tho...         
+            // Change shadow behavior if a directional light    
             if (lights[i]->type_ == 0) {
               fshadow = 0.f;
               break;
@@ -254,14 +275,62 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
-    H = (L + V).normalize();
+    H = (L + I).normalize();
+
+
+
+    // Since I messed up dx, dy, and dz, i'm just gonna use them as the point
+    // in the direction of the ray origin
+    RayType reflected_ray(intersection.x, intersection.y, intersection.z,
+                          R.x, R.y, R.z);
+
+    float r_coeff;
+    float idn = I.dot(N);
+    if (sqrt(1.f - pow(idn, 2)) > (r_coeff) && idn < 0.0) {
+      //return mtlcolor[s.m].albedo_;
+    }
+    // Inside
+    if (idn < 0.0) {
+      r_coeff = mtlcolor[s.m].refraction_;
+      N = N.scalar(-1.f);
+      I = I.scalar(-1.f);
+      F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
+    } else {  // Outside
+      r_coeff = 1.f / mtlcolor[s.m].refraction_;
+      //idn *= -1.f;
+      F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
+    }
+
+    // Fresnel and Reflection calculations
+    Fr = F0 + (1.f - F0) * pow((1.f - I.dot(N)), 5);
+
+
+    R = N.scalar(2.f * I.dot(N)) - I;
+    R = R.normalize();
+
+    VectorType a_dir = N.scalar(-1.f * sqrt(1.f - pow(r_coeff, 2) * (1.f - pow(idn, 2))));
+    VectorType b_dir = (N.scalar(1.f * idn) - I).scalar(r_coeff);
+
+    VectorType transmitted_dir = (a_dir + b_dir).normalize();
+    RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
+                            transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
+
+    float travel_dist = fabs(N.scalar(s.r).dot(ray_dir));
+
+    // Calculating the depth traveled in a sphere, maybe.
+    // Aka 2 times the projection of the un-normalized normal onto the
+    // ray direction
 
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-               .scalar(attenuation * fshadow) *
-               (od.scalar(kd * std::max(0.f, N.dot(L))) +
-               os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
+       .scalar(attenuation * fshadow) *
+       (od.scalar(kd * std::max(0.f, N.dot(L))) +
+       os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
+    diffspec = diffspec + Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
+    diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
+                 (pow(e, -1.f * mtlcolor[s.m].alpha_ * travel_dist / 25.f)));
+
     fshadow = (lights.size() * SAMPLES);
   }           // i
 
@@ -286,8 +355,22 @@ ColorType Shade_Ray(float x, float y, float z, SphereType & s) {
   return result.clamp(0.f, 1.f);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Oh yeah... I accidentally read it as baycentric rather than barycentric...
-ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay) {
+ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
   float epsilon = 0.01;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
   float n;               // Specular highlight fall-off
@@ -299,7 +382,12 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
   VectorType N, V, L, H; // Intersection normal, surface-light direction, 
   VectorType Lbefore;
 
-  VectorType intersection = VectorType(x, y, z);
+  // Fresnel and Reflections
+  VectorType I, R;
+  float Fr, F0, angle_in;
+
+  VectorType ray_origin = VectorType(in_ray.x, in_ray.y, in_ray.z);
+  VectorType intersection = ray_origin + VectorType(in_ray.dx, in_ray.dy, in_ray.dz);
 
   int u, v;
 
@@ -318,7 +406,10 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
   os = mtlcolor[s.m_].highlight_;
   n = mtlcolor[s.m_].n_;
   N = s.normal(bay).normalize();
+
+  // Change this to point at ray origin, maybe it's wrong, but it seems to work...
   V = viewdir.scalar(-1).normalize();
+  I = (ray_origin - intersection).normalize();
 
   ambient = od.scalar(ka);
 
@@ -395,11 +486,7 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
             // Controls some of shadow fall-off, scalable by distance
             fshadow -= otherdir.dot(N.scalar(-4)) * ((lights.size()) / (length + 1));
 
-            // Change shadow behavior if a directional lightcc
-            // Side note: if only i had read the canvas page I would've saved
-            // An entire day wondering why my shadows looked weird, and that
-            // Was because my directional light fell off. Still don't know
-            // Why it took so long to figure out tho...         
+            // Change shadow behavior if a directional light      
             if (lights[i]->type_ == 0) {
               fshadow = 0.f;
               break;
@@ -466,12 +553,16 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
-    H = (L + V).normalize();
+    H = (L + I).normalize();
+
+    // Fresnel and Reflection calculations
+    F0 = pow((mtlcolor[s.m_].refraction_ - 1) * (mtlcolor[s.m_].refraction_ + 1), 2);
+    Fr = F0 + (1.f - F0) * pow((1.f - I.dot(N)), 5);
 
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-               .scalar(attenuation * fshadow) *
+               .scalar(std::min(1.f, attenuation * fshadow)) *
                (od.scalar(kd * std::max(0.f, N.dot(L))) +
                os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
     fshadow = (lights.size() * SAMPLES);
@@ -493,12 +584,12 @@ ColorType Shade_RayT(float x, float y, float z, TriangleType & s, VectorType bay
     dca = (dcmax - dcmin) * (dc_far - dc_dist) / (dc_far - dc_near);
   }
 
-  result = (ambient + diffspec).clamp(0.f, 1.f);
-  result = result.scalar(dca) + depthcue.scalar(1.f - dca);
+  result = (diffspec).clamp(0.f, 1.f);
+  //result = result.scalar(dca) + depthcue.scalar(1.f - dca);
   return result.clamp(0.f, 1.f);
 }
 
-ColorType Trace_Ray(RayType ray) {
+ColorType Trace_Ray(RayType ray, int rec) {
   float B, C, discrim;
   float t1, t2, ct;
   float min_t = 99999;
@@ -506,21 +597,22 @@ ColorType Trace_Ray(RayType ray) {
   bool triangle = false;
 
   VectorType ray_dir = VectorType(ray.dx, ray.dy, ray.dz);
+  VectorType ray_origin = VectorType(ray.x, ray.y, ray.z);
 
   for (int s = 0; s < objects.size(); s++) {
     VectorType object_pos = VectorType(objects[s]->x, objects[s]->y, objects[s]->z);
-    B = 2 * (ray_dir.dot(eye - object_pos));
-    C = (eye - object_pos).dot(eye - object_pos) - pow(objects[s]->r, 2);
+    B = 2 * (ray_dir.dot(ray_origin - object_pos));
+    C = (ray_origin - object_pos).dot(ray_origin - object_pos) - pow(objects[s]->r, 2);
     discrim = pow(B, 2) - 4 * C;
 
     // Check if solutions exist and take the nearest one
     if (discrim >= 0) {
-      t1 = (-B + sqrt(discrim)) / 2;
-      t2 = (-B - sqrt(discrim)) / 2;
+      t1 = (-B + sqrt(discrim)) / 2.f;
+      t2 = (-B - sqrt(discrim)) / 2.f;
       ct = std::min(t1, t2);
 
-      // Check if out of view/behind
-      if (ct <= 0) {
+      // Check if out of view/behind of focal
+      if (ct < 0.01) {
         continue;   // Go to check next object
       }
 
@@ -546,9 +638,9 @@ ColorType Trace_Ray(RayType ray) {
       continue;
     }
 
-    float t = -(normal.dot(eye) + tD) / Bt;
+    float t = -(normal.dot(ray_origin) + tD) / Bt;
     float temp_min_t = std::min(t, min_t);
-    VectorType intersect = eye + ray_dir.scalar(temp_min_t);
+    VectorType intersect = ray_origin + ray_dir.scalar(temp_min_t);
 
     if (t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
       triangle = true;
@@ -561,15 +653,18 @@ ColorType Trace_Ray(RayType ray) {
 
   // Once checked all objects, check if index was not updated
   if (sindex < 0) {
+    if (rec > 1) return ColorType();
     return bkgcolor;
   } 
 
   // Calculate intersection point and pass it and the sphere to ShadeRay()
-  VectorType intersect = eye + ray_dir.scalar(min_t);
+  VectorType new_ray_dir = ray_dir.scalar(min_t);
+  VectorType intersect = ray_origin + new_ray_dir;
+  RayType in_ray(ray.x, ray.y, ray.z, new_ray_dir.x, new_ray_dir.y, new_ray_dir.z);
+
   if (triangle) {
-    return Shade_RayT(intersect.x, intersect.y, intersect.z, *tri[sindex],
-                      VectorType(alpha, beta, gamma));
-  } return Shade_Ray(intersect.x, intersect.y, intersect.z, *objects[sindex]);
+    return Shade_RayT(in_ray, *tri[sindex], VectorType(alpha, beta, gamma));
+  } return Shade_Ray(in_ray, *objects[sindex], rec);
 }
 
 #endif  // RAY_H_

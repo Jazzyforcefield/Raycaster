@@ -31,6 +31,10 @@ class ColorType {
     return ColorType(r * other.r, g * other.g, b * other.b);
   }
 
+  ColorType normalize() {
+    return ColorType(r / 3.f, g / 3.f, b / 3.f);
+  }
+
   ColorType clamp(float min, float max) {
     float red, green, blue;
 

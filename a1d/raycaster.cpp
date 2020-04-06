@@ -345,6 +345,7 @@ int print_values() {
     std::cout << " " << mtlcolor[i].albedo_.b << " " << mtlcolor[i].highlight_.r;
     std::cout << " " << mtlcolor[i].highlight_.g << " ";
     std::cout << mtlcolor[i].highlight_.b << " " << mtlcolor[i].n_;
+    std::cout << " " << mtlcolor[i].alpha_ << " " << mtlcolor[i].refraction_;
     std::cout << std::endl;
   }
 
@@ -534,7 +535,7 @@ int main(int argc, char ** argv) {
       VectorType point = ((ul + dh.scalar(col) + dv.scalar(row) + ch + cv) -
                           eye).normalize();
       RayType ray = RayType(eye.x, eye.y, eye.z, point.x, point.y, point.z);
-      pixels[row][col] = Trace_Ray(ray);
+      pixels[row][col] = Trace_Ray(ray, 0);
     }
   }
   
