@@ -275,14 +275,13 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
-    H = (L + I).normalize();
+    H = (L + V).normalize();
 
 
 
     // Since I messed up dx, dy, and dz, i'm just gonna use them as the point
     // in the direction of the ray origin
-    RayType reflected_ray(intersection.x, intersection.y, intersection.z,
-                          R.x, R.y, R.z);
+
 
     float r_coeff;
     float idn = I.dot(N);
@@ -308,10 +307,13 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     R = N.scalar(2.f * I.dot(N)) - I;
     R = R.normalize();
 
+    RayType reflected_ray(intersection.x, intersection.y, intersection.z,
+                          R.x, R.y, R.z);
+
     VectorType a_dir = N.scalar(-1.f * sqrt(1.f - pow(r_coeff, 2) * (1.f - pow(idn, 2))));
     VectorType b_dir = (N.scalar(1.f * idn) - I).scalar(r_coeff);
 
-    VectorType transmitted_dir = (a_dir + b_dir).normalize();
+    VectorType transmitted_dir = a_dir + b_dir;
     RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
                             transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
 
@@ -373,7 +375,13 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
 
 
 // Oh yeah... I accidentally read it as baycentric rather than barycentric...
-ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
+ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
+                     int recursive_depth) {
+
+  if (recursive_depth > 5) {
+    return ColorType(0, 0, 0);
+  }
+
   float epsilon = 0.01;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
   float n;               // Specular highlight fall-off
@@ -390,7 +398,8 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
   float Fr, F0, angle_in;
 
   VectorType ray_origin = VectorType(in_ray.x, in_ray.y, in_ray.z);
-  VectorType intersection = ray_origin + VectorType(in_ray.dx, in_ray.dy, in_ray.dz);
+  VectorType ray_dir = VectorType(in_ray.dx, in_ray.dy, in_ray.dz);  
+  VectorType intersection = ray_origin + ray_dir;
 
   int u, v;
 
@@ -537,7 +546,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
         if (t > 0.001 && res) {
           in_shadow = true;
-          fshadow = 0;//L.dot(N.scalar(-4));
+          fshadow = 0.f;//L.dot(N.scalar(-4));
         } else if (t <= 0.001 || !res) {
           continue;
         } else {
@@ -545,7 +554,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
           exit(1);
         }
       }
-    }     // k
+    }     // j
 
     // Set the shadow factor and the attentuation factors
     // The attenuation used only has linear scaling with distance
@@ -556,19 +565,58 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
-    H = (L + I).normalize();
+    H = (L + V).normalize();
+
+
+    float r_coeff;
+    float idn = I.dot(N);
+
+
+    // Inside
+    if (idn < 0.01) {
+      r_coeff = mtlcolor[s.m_].refraction_;
+      //N = N.scalar(-1.f);
+      I = I.scalar(-1.f);
+      F0 = pow((1.f - mtlcolor[s.m_].refraction_) / (1.f + mtlcolor[s.m_].refraction_), 2);
+    } else {  // Outside
+      r_coeff = 1.f / mtlcolor[s.m_].refraction_;
+      F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
+    }
 
     // Fresnel and Reflection calculations
-    F0 = pow((mtlcolor[s.m_].refraction_ - 1) * (mtlcolor[s.m_].refraction_ + 1), 2);
     Fr = F0 + (1.f - F0) * pow((1.f - I.dot(N)), 5);
+
+    R = N.scalar(2.f * I.dot(N)) - I;
+    R = R.normalize();
+
+    RayType reflected_ray(intersection.x, intersection.y, intersection.z,
+                          R.x, R.y, R.z);
+
+
+    VectorType a_dir = N.scalar(-1.f * sqrt(1.f - pow(r_coeff, 2) * (1.f - pow(idn, 2))));
+    VectorType b_dir = (N.scalar(1.f * idn) - I).scalar(r_coeff);
+
+    VectorType transmitted_dir = a_dir + b_dir;
+    RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
+                            transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
+
+
+
+    float travel_dist = (ray_origin - intersection).length();
 
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-               .scalar(std::min(1.f, attenuation * fshadow)) *
-               (od.scalar(kd * std::max(0.f, N.dot(L))) +
-               os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
-    fshadow = (lights.size() * SAMPLES);
+       .scalar(attenuation * fshadow) *
+       (od.scalar(kd * std::max(0.f, N.dot(L))) +
+       os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
+    diffspec = diffspec + Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
+
+    if (mtlcolor[s.m_].alpha_ < 1.f) {
+      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
+                 (pow(e, -1.f * mtlcolor[s.m_].alpha_ * travel_dist / 2)));
+    }
+
   }           // i
 
   // Reset shadow factor
@@ -587,10 +635,19 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay) {
     dca = (dcmax - dcmin) * (dc_far - dc_dist) / (dc_far - dc_near);
   }
 
-  result = (diffspec).clamp(0.f, 1.f);
-  //result = result.scalar(dca) + depthcue.scalar(1.f - dca);
+  result = (ambient + diffspec).clamp(0.f, 1.f);
+  result = result.scalar(dca) + depthcue.scalar(1.f - dca);
   return result.clamp(0.f, 1.f);
 }
+
+
+
+
+
+
+
+
+
 
 ColorType Trace_Ray(RayType ray, int rec) {
   float B, C, discrim;
@@ -645,7 +702,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
     float temp_min_t = std::min(t, min_t);
     VectorType intersect = ray_origin + ray_dir.scalar(temp_min_t);
 
-    if (t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
+    if (t > 0.01 && t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
       triangle = true;
       sindex = s;
       min_t = temp_min_t;
@@ -666,7 +723,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
   RayType in_ray(ray.x, ray.y, ray.z, new_ray_dir.x, new_ray_dir.y, new_ray_dir.z);
 
   if (triangle) {
-    return Shade_RayT(in_ray, *tri[sindex], VectorType(alpha, beta, gamma));
+    return Shade_RayT(in_ray, *tri[sindex], VectorType(alpha, beta, gamma), rec);
   } return Shade_Ray(in_ray, *objects[sindex], rec);
 }
 

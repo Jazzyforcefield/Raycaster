@@ -1,5 +1,5 @@
 all: raycaster.cpp ray.h vectortype.h colortype.h spheretype.h materialtype.h lighttype.h
-	g++ raycaster.cpp -o gen_image
+	g++ -g raycaster.cpp -o gen_image
 
 .PHONY: clean
 
