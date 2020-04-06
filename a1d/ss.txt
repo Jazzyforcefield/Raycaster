@@ -7,7 +7,7 @@ bkgcolor 1 1 1
 light -10 -3 5 1 1 1 1
 light -6 6 15 1 1 1 1
 light 6 8 15 1 1 1 1
-mtlcolor 1 0 0 1 1 1 0.1 0.5 0.2 2 0.5 1
+mtlcolor 1 0 0 1 1 1 0.1 0.5 0.2 2 0.5 1.1
 sphere -5 0 0 4
 mtlcolor 0 0 1 1 1 1 0.1 0.5 0.2 2 1 1
 sphere -5 1 -10 2

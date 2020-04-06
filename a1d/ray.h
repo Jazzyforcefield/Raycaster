@@ -287,7 +287,8 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     float r_coeff;
     float idn = I.dot(N);
     if (sqrt(1.f - pow(idn, 2)) > (r_coeff) && idn < 0.0) {
-      //return mtlcolor[s.m].albedo_;
+      std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
+      return mtlcolor[s.m].albedo_;
     }
     // Inside
     if (idn < 0.0) {
@@ -297,7 +298,6 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
       F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
     } else {  // Outside
       r_coeff = 1.f / mtlcolor[s.m].refraction_;
-      //idn *= -1.f;
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
     }
 
@@ -328,8 +328,11 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
        (od.scalar(kd * std::max(0.f, N.dot(L))) +
        os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
     diffspec = diffspec + Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
-    diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
-                 (pow(e, -1.f * mtlcolor[s.m].alpha_ * travel_dist / 25.f)));
+
+    if (mtlcolor[s.m].alpha_ < 1.f) {
+      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
+                 (pow(e, -1.f * mtlcolor[s.m].alpha_ * travel_dist / 40.f)));
+    }
 
     fshadow = (lights.size() * SAMPLES);
   }           // i
