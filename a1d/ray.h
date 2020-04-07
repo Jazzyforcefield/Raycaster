@@ -285,12 +285,9 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
 
     float r_coeff;
     float idn = I.dot(N);
-    if (sqrt(1.f - pow(idn, 2)) > (r_coeff) && idn < 0.0) {
-      std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
-      return mtlcolor[s.m].albedo_;
-    }
+
     // Inside
-    if (idn < 0.0) {
+    if (idn < 0) {
       r_coeff = mtlcolor[s.m].refraction_;
       N = N.scalar(-1.f);
       I = I.scalar(-1.f);
@@ -298,6 +295,11 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     } else {  // Outside
       r_coeff = 1.f / mtlcolor[s.m].refraction_;
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
+    }
+
+    if (idn < 0.0001 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
+      std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
+      return mtlcolor[s.m].albedo_;
     }
 
     // Fresnel and Reflection calculations
@@ -313,7 +315,7 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     VectorType a_dir = N.scalar(-1.f * sqrt(1.f - pow(r_coeff, 2) * (1.f - pow(idn, 2))));
     VectorType b_dir = (N.scalar(1.f * idn) - I).scalar(r_coeff);
 
-    VectorType transmitted_dir = a_dir + b_dir;
+    VectorType transmitted_dir = (a_dir + b_dir).normalize();
     RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
                             transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
 
@@ -382,7 +384,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     return ColorType(0, 0, 0);
   }
 
-  float epsilon = 0.01;  // Sparse ray threshold
+  float epsilon = 0.0001;  // Sparse ray threshold
   float ka, kd, ks;      // Ambient, diffuse, and specular constants
   float n;               // Specular highlight fall-off
   float fshadow;
@@ -395,7 +397,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
 
   // Fresnel and Reflections
   VectorType I, R;
-  float Fr, F0, angle_in;
+  float Fr, F0;
 
   VectorType ray_origin = VectorType(in_ray.x, in_ray.y, in_ray.z);
   VectorType ray_dir = VectorType(in_ray.dx, in_ray.dy, in_ray.dz);  
@@ -546,11 +548,11 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
         if (t > 0.001 && res) {
           in_shadow = true;
-          fshadow = 0.f;//L.dot(N.scalar(-4));
+          fshadow =- L.dot(N.scalar(-4.f));
         } else if (t <= 0.001 || !res) {
           continue;
         } else {
-          std::cerr << "Problem has occurred in ShadeRay!" << std::endl;
+          std::cerr << "Problem has occurred in ShadeRayT!" << std::endl;
           exit(1);
         }
       }
@@ -573,14 +575,14 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
 
 
     // Inside
-    if (idn < 0.01) {
+    if (idn < 0.00001) {
       r_coeff = mtlcolor[s.m_].refraction_;
-      //N = N.scalar(-1.f);
-      I = I.scalar(-1.f);
-      F0 = pow((1.f - mtlcolor[s.m_].refraction_) / (1.f + mtlcolor[s.m_].refraction_), 2);
+      N = N.scalar(-1.f);
+      idn = I.dot(N);
+      F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
     } else {  // Outside
       r_coeff = 1.f / mtlcolor[s.m_].refraction_;
-      F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
+      F0 = pow((1.f - mtlcolor[s.m_].refraction_) / (1.f + mtlcolor[s.m_].refraction_), 2);
     }
 
     // Fresnel and Reflection calculations
@@ -589,6 +591,10 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     R = N.scalar(2.f * I.dot(N)) - I;
     R = R.normalize();
 
+    if (fabs(sqrt(1.f - pow(idn, 2)) == (r_coeff))) {
+      return mtlcolor[s.m_].albedo_;
+    }
+
     RayType reflected_ray(intersection.x, intersection.y, intersection.z,
                           R.x, R.y, R.z);
 
@@ -596,7 +602,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     VectorType a_dir = N.scalar(-1.f * sqrt(1.f - pow(r_coeff, 2) * (1.f - pow(idn, 2))));
     VectorType b_dir = (N.scalar(1.f * idn) - I).scalar(r_coeff);
 
-    VectorType transmitted_dir = a_dir + b_dir;
+    VectorType transmitted_dir = (a_dir + b_dir).normalize();
     RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
                             transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
 
@@ -612,10 +618,10 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
        os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
     diffspec = diffspec + Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
 
-    if (mtlcolor[s.m_].alpha_ < 1.f) {
-      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
-                 (pow(e, -1.f * mtlcolor[s.m_].alpha_ * travel_dist / 2)));
-    }
+    //if (mtlcolor[s.m_].alpha_ < 1.f) {
+      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth + 1).scalar((1.f - Fr) *
+                 (pow(e, -1.f * mtlcolor[s.m_].alpha_ * travel_dist / 2.f)));
+    //}
 
   }           // i
 
@@ -663,7 +669,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
     VectorType object_pos = VectorType(objects[s]->x, objects[s]->y, objects[s]->z);
     B = 2 * (ray_dir.dot(ray_origin - object_pos));
     C = (ray_origin - object_pos).dot(ray_origin - object_pos) - pow(objects[s]->r, 2);
-    discrim = pow(B, 2) - 4 * C;
+    discrim = pow(B, 2) - 4.f * C;
 
     // Check if solutions exist and take the nearest one
     if (discrim >= 0) {
@@ -672,7 +678,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
       ct = std::min(t1, t2);
 
       // Check if out of view/behind of focal
-      if (ct < 0.01) {
+      if (ct < 0.001) {
         continue;   // Go to check next object
       }
 
@@ -695,7 +701,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
     float Bt = normal.dot(ray_dir);
 
     if (fabs(Bt) < 0.0001) {
-      continue;
+      continue; // break;
     }
 
     float t = -(normal.dot(ray_origin) + tD) / Bt;
