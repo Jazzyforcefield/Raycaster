@@ -60,18 +60,17 @@ class TriangleType : public ShapeType {
     e2 = vb[vertices_[1] - 1] - intersection;
     e3 = vb[vertices_[2] - 1] - intersection;
 
-    c = e1.cross(e2).length();
-    a = e2.cross(e3).length();
-    b = e3.cross(e1).length();
+    c = e1.cross(e2).length() / 2.f;
+    a = e2.cross(e3).length() / 2.f;
+    b = e3.cross(e1).length() / 2.f;
 
-    sum = (a + b + c) / 2.f;
+    sum = a + b + c;
 
     // Basically just alpha + beta + gamma = 1 => (alpha + beta + gamma) / A = 1
-    if (fabs(actual - sum) < 0.0001) {
-      alpha = 0.5f * a / actual;
-      beta = 0.5f * b / actual;
-      gamma = 0.5f * c / actual;
-
+    if (fabs(actual - sum) < 0.001) {
+      alpha = a / actual;
+      beta = b / actual;
+      gamma = c / actual;
       return true;
     } return false;
   }

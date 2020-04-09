@@ -230,7 +230,7 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
       // Or if it's in the same direction as the light
        //if (in_shadow) break;
       if (in_shadow) {
-        continue;
+        //continue;
       }
 
       // Cast SAMPLES rays for softer shadows
@@ -254,7 +254,7 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
         float t = -(normal.dot(intersection) + tD) / Bt;
         VectorType intersect = intersection + L.scalar(t);
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
-        if (t > 0 && res) {
+        if (t > 0.001 && res) {
           in_shadow = true;
           fshadow -= L.dot(N.scalar(-lights.size()));
         } else if (t <= 0 || !res) {
@@ -290,14 +290,14 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     if (idn < 0) {
       r_coeff = mtlcolor[s.m].refraction_;
       N = N.scalar(-1.f);
-      I = I.scalar(-1.f);
-      F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
-    } else {  // Outside
-      r_coeff = 1.f / mtlcolor[s.m].refraction_;
+      idn = I.dot(N);
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
+    } else {  // Outside
+      F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
+      r_coeff = 1.f / mtlcolor[s.m].refraction_;
     }
 
-    if (idn < 0.0001 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
+    if (idn < 0 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
       std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
       return mtlcolor[s.m].albedo_;
     }
@@ -402,6 +402,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
   VectorType ray_origin = VectorType(in_ray.x, in_ray.y, in_ray.z);
   VectorType ray_dir = VectorType(in_ray.dx, in_ray.dy, in_ray.dz);  
   VectorType intersection = ray_origin + ray_dir;
+  ray_dir = ray_dir.normalize();
 
   int u, v;
 
@@ -416,7 +417,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
   ka = mtlcolor[s.m_].ambient_;
   kd = mtlcolor[s.m_].diffuse_;
   ks = mtlcolor[s.m_].specular_;
-  od = (s.textured_ && texc > 0) ? textures[s.t_].map_[v][u] : mtlcolor[s.m_].albedo_;
+  od = (s.textured_ && texc > 0 && s.t_ > -1) ? textures[s.t_].map_[v][u] : mtlcolor[s.m_].albedo_;
   os = mtlcolor[s.m_].highlight_;
   n = mtlcolor[s.m_].n_;
   N = s.normal(bay).normalize();
@@ -457,7 +458,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
       // Or if it's in the same direction as the light
        //if (in_shadow) break;
       if (length >= distance && lights[i]->type_ != 0 ||
-          otherdir.dot(L.scalar(-1)) <= 0 || in_shadow) {
+           in_shadow) {
         continue;
       }
 
@@ -543,13 +544,13 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
         float tD = -normal.dot(point);
         float Bt = normal.dot(L);
 
-        float t = -(normal.dot(intersection) + tD) / Bt;
+        float t = (normal.dot(intersection) + tD) / Bt;
         VectorType intersect = intersection + L.scalar(t);
         bool res = tri[j]->check_point(intersect, alpha, beta, gamma);
-        if (t > 0.001 && res) {
+        if (t > 0.0001 && res) {
           in_shadow = true;
           fshadow =- L.dot(N.scalar(-4.f));
-        } else if (t <= 0.001 || !res) {
+        } else if (t <= 0.0001 || !res) {
           continue;
         } else {
           std::cerr << "Problem has occurred in ShadeRayT!" << std::endl;
@@ -563,7 +564,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     // Increase numerator to increase contrast/decreases fall-off rate
     // Basically a = 0, b = 0.125, c = 0 | a = 1
     attenuation = 1.f;//(lights[i]->type_ == 1) ? 8.f / Lbefore.length() : 2.f;
-    fshadow = std::max(std::min(1.f, fshadow / (lights.size() * SAMPLES)), 0.f);
+    fshadow = 1.f;//std::max(std::min(1.f, fshadow / (lights.size() * SAMPLES)), 0.f);
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
@@ -575,11 +576,11 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
 
 
     // Inside
-    if (idn < 0.00001) {
+    if (idn < 0.001) {
       r_coeff = mtlcolor[s.m_].refraction_;
+      F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
       N = N.scalar(-1.f);
       idn = I.dot(N);
-      F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
     } else {  // Outside
       r_coeff = 1.f / mtlcolor[s.m_].refraction_;
       F0 = pow((1.f - mtlcolor[s.m_].refraction_) / (1.f + mtlcolor[s.m_].refraction_), 2);
@@ -590,10 +591,6 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
 
     R = N.scalar(2.f * I.dot(N)) - I;
     R = R.normalize();
-
-    if (fabs(sqrt(1.f - pow(idn, 2)) == (r_coeff))) {
-      return mtlcolor[s.m_].albedo_;
-    }
 
     RayType reflected_ray(intersection.x, intersection.y, intersection.z,
                           R.x, R.y, R.z);
@@ -613,15 +610,15 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     // A running total of the diffusion and specular components
     // Multiplied by the attenuation factor and the shadow factor
     diffspec = diffspec + lights[i]->color_
-       .scalar(attenuation * fshadow) *
+       .scalar(std::min(1.f, attenuation * fshadow)) *
        (od.scalar(kd * std::max(0.f, N.dot(L))) +
        os.scalar(ks * pow(std::max(0.f, N.dot(H)), n)));
     diffspec = diffspec + Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
 
-    //if (mtlcolor[s.m_].alpha_ < 1.f) {
-      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth + 1).scalar((1.f - Fr) *
+    if (mtlcolor[s.m_].alpha_ < 1.f) {
+      diffspec = diffspec + Trace_Ray(transmitted_ray, recursive_depth).scalar((1.f - Fr) *
                  (pow(e, -1.f * mtlcolor[s.m_].alpha_ * travel_dist / 2.f)));
-    //}
+    }
 
   }           // i
 
@@ -700,7 +697,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
     float tD = -normal.dot(point);
     float Bt = normal.dot(ray_dir);
 
-    if (fabs(Bt) < 0.0001) {
+    if (fabs(Bt) <= 0.0001) {
       continue; // break;
     }
 
@@ -708,7 +705,7 @@ ColorType Trace_Ray(RayType ray, int rec) {
     float temp_min_t = std::min(t, min_t);
     VectorType intersect = ray_origin + ray_dir.scalar(temp_min_t);
 
-    if (t > 0.01 && t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
+    if (t > 0.0001 && t < min_t && tri[s]->check_point(intersect, alpha, beta, gamma)) {
       triangle = true;
       sindex = s;
       min_t = temp_min_t;
