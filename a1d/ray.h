@@ -292,7 +292,7 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
       //r_coeff = 1.f / mtlcolor[s.m].refraction_;
       r_coeff = mtlcolor[s.m].refraction_;
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
-      idn = I.dot(N.scalar(-1.f));
+      //idn = I.dot(N.scalar(-1.f));
     } else {  // Outside
       //F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
       //r_coeff = mtlcolor[s.m].refraction_;
@@ -578,7 +578,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
 
 
     // Inside
-    if (idn < 0.001) {
+    if (idn < 0) {
       r_coeff = mtlcolor[s.m_].refraction_;
       F0 = pow((mtlcolor[s.m_].refraction_ - 1.f) / (mtlcolor[s.m_].refraction_ + 1.f), 2);
       N = N.scalar(-1.f);
