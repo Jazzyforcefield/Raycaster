@@ -495,7 +495,7 @@ int main(int argc, char ** argv) {
   VectorType u = viewdir.cross(updir).normalize();
   VectorType v = u.cross(viewdir).normalize();
   VectorType n = viewdir.normalize();
-  float focal = 10.0;
+  float focal = 12.0;
 
 
   // All points

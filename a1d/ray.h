@@ -287,26 +287,21 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     float idn = I.dot(N);
 
     // Inside
-    if (idn < 0) {
+    if (idn >= 0) {
       r_coeff = mtlcolor[s.m].refraction_;
-      N = N.scalar(-1.f);
-      idn = I.dot(N);
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
+      idn = I.dot(N.scalar(-1.f));
     } else {  // Outside
+      //F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
+      //r_coeff = mtlcolor[s.m].refraction_;
       F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
       r_coeff = 1.f / mtlcolor[s.m].refraction_;
     }
 
-    if (idn < 0 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
-      std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
-      return mtlcolor[s.m].albedo_;
-    }
-
     // Fresnel and Reflection calculations
-    Fr = F0 + (1.f - F0) * pow((1.f - I.dot(N)), 5);
+    Fr = F0 + (1.f - F0) * pow((1.f - idn), 5);
 
-
-    R = N.scalar(2.f * I.dot(N)) - I;
+    R = N.scalar(2.f * idn) - I;
     R = R.normalize();
 
     RayType reflected_ray(intersection.x, intersection.y, intersection.z,
@@ -318,6 +313,11 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     VectorType transmitted_dir = (a_dir + b_dir).normalize();
     RayType transmitted_ray(intersection.x, intersection.y, intersection.z,
                             transmitted_dir.x, transmitted_dir.y, transmitted_dir.z);
+
+    if (idn < 0 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
+      std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
+      return Trace_Ray(transmitted_ray, recursive_depth + 1).scalar(Fr);
+    }
 
     float travel_dist = fabs(N.scalar(s.r).dot(ray_dir));
 
@@ -564,7 +564,7 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     // Increase numerator to increase contrast/decreases fall-off rate
     // Basically a = 0, b = 0.125, c = 0 | a = 1
     attenuation = 1.f;//(lights[i]->type_ == 1) ? 8.f / Lbefore.length() : 2.f;
-    fshadow = 1.f;//std::max(std::min(1.f, fshadow / (lights.size() * SAMPLES)), 0.f);
+    fshadow = std::max(std::min(1.f, fshadow / (lights.size() * SAMPLES)), 0.f);
 
     // Calculate H, which is the normalized sum of the light direction and the
     // Negative normalzed viewing direction
@@ -587,9 +587,9 @@ ColorType Shade_RayT(RayType in_ray, TriangleType & s, VectorType bay,
     }
 
     // Fresnel and Reflection calculations
-    Fr = F0 + (1.f - F0) * pow((1.f - I.dot(N)), 5);
+    Fr = F0 + (1.f - F0) * pow((1.f - idn), 5);
 
-    R = N.scalar(2.f * I.dot(N)) - I;
+    R = N.scalar(2.f * idn) - I;
     R = R.normalize();
 
     RayType reflected_ray(intersection.x, intersection.y, intersection.z,
