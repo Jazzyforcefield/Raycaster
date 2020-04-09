@@ -287,7 +287,9 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
     float idn = I.dot(N);
 
     // Inside
-    if (idn >= 0) {
+    if (idn < 0) {
+      //F0 = pow((1.f - mtlcolor[s.m].refraction_) / (1.f + mtlcolor[s.m].refraction_), 2);
+      //r_coeff = 1.f / mtlcolor[s.m].refraction_;
       r_coeff = mtlcolor[s.m].refraction_;
       F0 = pow((mtlcolor[s.m].refraction_ - 1.f) / (mtlcolor[s.m].refraction_ + 1.f), 2);
       idn = I.dot(N.scalar(-1.f));
@@ -316,7 +318,7 @@ ColorType Shade_Ray(RayType in_ray, SphereType & s, int recursive_depth) {
 
     if (idn < 0 && sqrt(1.f - pow(idn, 2)) > (r_coeff)) {
       std::cout << sqrt(1.f - pow(idn, 2)) << std::endl;
-      return Trace_Ray(transmitted_ray, recursive_depth + 1).scalar(Fr);
+      return Trace_Ray(reflected_ray, recursive_depth + 1).scalar(Fr);
     }
 
     float travel_dist = fabs(N.scalar(s.r).dot(ray_dir));
